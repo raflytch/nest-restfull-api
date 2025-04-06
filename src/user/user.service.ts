@@ -5,12 +5,14 @@ import { ValidationService } from '../common/validation.service';
 import {
   LoginUserRequest,
   RegisterUserRequest,
+  UpdateUserRequest,
   UserResponse,
 } from '../model/user.model';
 import { Logger } from 'winston';
 import { UserValidation } from './user.validation';
 import * as bcrypt from 'bcrypt';
 import { v4 as uuid } from 'uuid';
+import { User } from '@prisma/client';
 
 @Injectable()
 export class UserService {
@@ -98,6 +100,45 @@ export class UserService {
       username: user.username,
       name: user.name,
       token: user.token ? user.token : undefined,
+    };
+  }
+
+  async getUserService(user: User): Promise<UserResponse> {
+    return {
+      username: user.username,
+      name: user.name,
+    };
+  }
+
+  async updateUserService(
+    user: User,
+    request: UpdateUserRequest,
+  ): Promise<UserResponse> {
+    this.logger.debug(`Updating user ${JSON.stringify(request)}`);
+    const updateRequest: UpdateUserRequest = this.validationService.validate(
+      UserValidation.UPDATE,
+      request,
+    );
+
+    if (updateRequest.name) {
+      user.name = updateRequest.name;
+    }
+    if (updateRequest.password) {
+      user.password = await bcrypt.hash(updateRequest.password, 10);
+    }
+
+    const updatedUser = await this.prismaService.user.update({
+      where: {
+        username: user.username,
+      },
+      data: {
+        name: user.name,
+      },
+    });
+
+    return {
+      username: updatedUser.username,
+      name: updatedUser.name,
     };
   }
 }
